@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# FUNCTIONS #
+
+build () {
+    docker compose build "${@:1}"
+}
+destroy () {
+    read -p "This will delete containers, volumes and images. Are you sure? [y/N]: " -r 
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit; fi
+    docker compose down -v --rmi all --remove-orphans
+}
+down () {
+    docker compose down "${@:1}"
+}
+init () {
+    env \
+        && down -v \
+        && build \
+        && start
+}
+logs () {
+    docker compose logs -f "${@:1}"
+}
+restart () {
+    stop && start
+}
+start () {
+    docker compose up -d
+}
+stop () {
+    docker compose stop 
+}
+
+# MENU #
+
+case "$1" in
+    build)
+        build "${@:2}"
+        ;;
+    destroy)
+        destroy "${@:2}"
+        ;;
+    down)
+        down "${@:2}"
+        ;;
+    init)
+        init
+        ;;
+    logs)
+        logs "${@:2}"
+        ;;
+    restart)
+        restart
+        ;;
+    start)
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    *)
+        cat << EOF
+
+Command line interface for the Docker-based web development environment webdev
+
+Usage:
+    webdev <command> [options] [arguments]
+
+Available commands:
+    build [image] ............................. Build all of the images or the specified one
+    destroy ................................... Remove the entire Docker environment
+    down [-v] ................................. Stop and destroy all containers
+                                                Options:
+                                                    -v .................... Destroy the volumes as well
+    init ...................................... Initialise the Docker environment and the application
+    logs [container] .......................... Display and tail the logs of all containers or the specified one's
+    restart ................................... Restart the containers
+    start ..................................... Start the containers
+    stop ...................................... Stop the containers
+
+EOF
+        exit 1
+        ;;
+esac
+
