@@ -5,6 +5,29 @@
 build () {
     docker compose build "${@:1}"
 }
+cert_generate () {
+    rm -Rf .docker/nginx/certs/webdev.test.*
+    docker compose run --rm nginx sh -c "cd /etc/nginx/certs && touch openssl.cnf && cat /etc/ssl/openssl.cnf > openssl.cnf && echo \"\" >> openssl.cnf && echo \"[ SAN ]\" >> openssl.cnf && echo \"subjectAltName=DNS.1:webdev.test,DNS.2:*.webdev.test\" >> openssl.cnf && openssl req -x509 -sha256 -nodes -newkey rsa:4096 -keyout webdev.test.key -out webdev.test.crt -days 3650 -subj \"/CN=*.webdev.test\" -config openssl.cnf -extensions SAN && rm openssl.cnf"
+}
+
+# Install the certificate
+cert_install () {
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain .docker/nginx/certs/webdev.test.crt
+    # For debian family distros 
+    #elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+    #    sudo ln -s "$(pwd)/.docker/nginx/certs/webdev.test.crt" /usr/local/share/ca-certificates/webdev.test.crt
+    #    sudo update-ca-certificates
+    # For arch family distros
+    elif [[ "$OSTYPE" == "linux-gnu" ]]; then
+        sudo ln -s "$(pwd)/.docker/nginx/certs/webdev.test.crt" /etc/ca-certificates/trust-source/anchors/webdev.test.crt
+        sudo update-ca-trust
+    else
+        echo "Could not install the certificate on the host machine, please do it manually"
+    fi
+
+    docker compose exec -u root php update-ca-certificates
+}
 destroy () {
     read -p "This will delete containers, volumes and images. Are you sure? [y/N]: " -r 
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then exit; fi
@@ -37,6 +60,26 @@ stop () {
 case "$1" in
     build)
         build "${@:2}"
+        ;;
+    cert)
+        case "$2" in
+            generate)
+                cert_generate
+                ;;
+            install)
+                cert_install
+                ;;
+            *)
+                cat << EOF
+Certificate management commands.
+Usage:
+    webdev cert <command>
+Available commands:
+    generate .................................. Generate a new certificate
+    install ................................... Install the certificate
+EOF
+                ;;
+        esac
         ;;
     destroy)
         destroy "${@:2}"

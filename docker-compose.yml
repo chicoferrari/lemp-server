@@ -2,13 +2,15 @@ version: '3.8'
 
 services:
   nginx:
-    image: nginx:1.23.1-alpine
+    build: ./.docker/nginx
     ports:
       - 80:80
+      - 443:443
     volumes:
       - ./src:/var/www/php
       - ./.docker/nginx/conf.d:/etc/nginx/conf.d
       - phpmyadmindata:/var/www/phpmyadmin
+      - ./.docker/nginx/certs:/etc/nginx/certs
     depends_on:
       - php
       - phpmyadmin
@@ -47,7 +49,6 @@ services:
     depends_on:
       mysql:
         condition: service_healthy  
-
 
 volumes:
   mysqldata:
